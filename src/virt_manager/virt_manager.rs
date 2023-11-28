@@ -12,7 +12,7 @@ impl VirtManager{
 
         let conn = match Connect::open(uri.as_deref().unwrap()) {
             Ok(c) => c,
-            Err(e) => panic!("No connection to hypervisor: {}", e),
+            Err(e) => panic!("No connection to hypervisor: {} ", e),
         };
 
         VirtManager{
