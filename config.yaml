@@ -1,0 +1,106 @@
+networks:
+  access1:
+    subnet: 10.0.0.0/24
+  core1:
+    subnet: 10.0.1.0/24
+  core2:
+    subnet: 10.0.2.0/24
+  access2:
+    subnet: 10.0.3.0/24
+  mgmt:
+    subnet: 192.168.0.0/24
+instances:
+  host1:
+    vcpu: 4
+    memory: 4096
+    image: ubuntu
+  host2:
+    vcpu: 4
+    memory: 4096
+    image: ubuntu
+  router1:
+    vcpu: 4
+    memory: 4096
+    image: ubuntu
+  router2:
+    vcpu: 4
+    memory: 4096
+    image: ubuntu
+interfaces:
+  host1_eth0:
+    mtu: 2000
+    network: mgmt
+    instance: host1
+  host1_eth1:
+    mtu: 2000
+    network: access1
+    instance: host1
+  host2_eth0:
+    mtu: 2000
+    network: mgmt
+    instance: host2
+  host2_eth1:
+    mtu: 2000
+    network: access1
+    instance: host2
+  router1_eth0:
+    mtu: 2000
+    network: mgmt
+    instance: router1
+  router1_eth1:
+    mtu: 2000
+    network: access1
+    instance: router1
+  router1_eth2:
+    mtu: 2000
+    network: core1
+    instance: router1
+  router1_eth3:
+    mtu: 2000
+    network: core2
+    instance: router1
+  router2_eth0:
+    mtu: 2000
+    network: mgmt
+    instance: router2
+  router2_eth1:
+    mtu: 2000
+    network: access2
+    instance: router2
+  router2_eth2:
+    mtu: 2000
+    network: core1
+    instance: router2
+  router2_eth3:
+    mtu: 2000
+    network: core2
+    instance: router2
+route_tables:
+  host1_rt1:
+    routes:
+      access2:
+      - instance: router1
+        interface: router1_eth1
+    instance: host1
+  host2_rt1:
+    routes:
+      access1:
+      - instance: router2
+        interface: router2_eth1
+    instance: host2
+  router1_rt1:
+    routes:
+      access2:
+      - instance: router2
+        interface: router2_eth2
+      - instance: router2
+        interface: router2_eth3
+    instance: router1
+  router2_rt1:
+    routes:
+      access1:
+      - instance: router1
+        interface: router1_eth2
+      - instance: router1
+        interface: router1_eth3
+    instance: router2
