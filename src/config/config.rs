@@ -8,7 +8,7 @@ use crate::route_table::route_table::RouteTableConfig;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Config{
-    pub user_config: Option<UserConfig>,
+    pub user_config: UserConfig,
     pub networks: HashMap<String, NetworkConfig>,
     pub instances: HashMap<String, InstanceConfig>,
     pub interfaces: HashMap<String, InterfaceConfig>,
@@ -19,10 +19,11 @@ pub struct Config{
 pub struct UserConfig{
     pub user_name: String,
     pub key_path: String,
+    pub base_directory: String,
 }
 
 impl Config{
-    pub fn new(user_config: Option<UserConfig>) -> Config{
+    pub fn new(user_config: UserConfig) -> Config{
         Config{
             user_config,
             networks: HashMap::new(),

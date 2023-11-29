@@ -45,10 +45,11 @@ fn main() -> anyhow::Result<()>{
         let inst = HashMap::from([(String::from("host1"), runtime.instances.get("host1").unwrap().clone())]);
         virt_manager.create_instance(inst, config.user_config.clone())?;
     } else {
-        let mut config = Config::new(Some(UserConfig{
+        let mut config = Config::new(UserConfig{
             user_name: "ubuntu".to_string(),
             key_path: "/home/alex/.ssh/id_rsa".to_string(),
-        }));
+            base_directory: "/var/lib/libvirt/images".to_string(),
+        });
 
         let network_config = NetworkConfig::new(NetworkTypeConfig::Managed { name: "default".to_string() });
         config.add("mgmt", network_config);

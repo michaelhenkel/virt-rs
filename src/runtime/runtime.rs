@@ -6,7 +6,7 @@ use crate::{instance::instance::InstanceRuntime, network::network::NetworkRuntim
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Runtime{
-    pub user_config: Option<UserConfig>,
+    pub user_config: UserConfig,
     pub instances: HashMap<String, InstanceRuntime>,
     pub networks: HashMap<String, NetworkRuntime>,
 }

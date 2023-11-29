@@ -41,7 +41,6 @@ pub struct InstanceRuntime{
     pub memory: u16,
     pub image: String,
     pub interfaces: HashMap<String, InterfaceRuntime>,
-    pub route_tables: HashMap<String, RouteTableRuntime>,
 }
 
 impl From<InstanceConfig> for InstanceRuntime{
@@ -50,13 +49,11 @@ impl From<InstanceConfig> for InstanceRuntime{
         let memory = config.memory;
         let image = config.image;
         let interfaces = HashMap::new();
-        let route_tables = HashMap::new();
         InstanceRuntime{
             vcpu,
             memory,
             image,
             interfaces,
-            route_tables,
         }
     }
 }

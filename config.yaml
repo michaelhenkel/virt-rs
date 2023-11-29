@@ -1,6 +1,7 @@
 user_config:
   user_name: mhenkel
   key_path: /home/mhenkel/.ssh/id_rsa.pub
+  base_directory: /var/lib/libvirt/images
 networks:
   access1:
     network_type:
