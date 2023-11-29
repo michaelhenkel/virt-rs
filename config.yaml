@@ -1,31 +1,39 @@
+user_config:
+  user_name: mhenkel
+  key_path: /home/mhenkel/.ssh/id_rsa.pub
 networks:
   access1:
-    subnet: 10.0.0.0/24
+    network_type:
+      subnet: 10.0.0.0/24
   core1:
-    subnet: 10.0.1.0/24
+    network_type:
+      subnet: 10.0.1.0/24
   core2:
-    subnet: 10.0.2.0/24
+    network_type:
+      subnet: 10.0.2.0/24
   access2:
-    subnet: 10.0.3.0/24
+    network_type:
+      subnet: 10.0.3.0/24
   mgmt:
-    subnet: 192.168.0.0/24
+    network_type:
+      name: default
 instances:
   host1:
     vcpu: 4
-    memory: 4096
-    image: ubuntu
+    memory: 4
+    image: /var/lib/libvirt/images/mantic-server-cloudimg-amd64.img
   host2:
     vcpu: 4
-    memory: 4096
-    image: ubuntu
+    memory: 4
+    image: /var/lib/libvirt/images/mantic-server-cloudimg-amd64.img
   router1:
     vcpu: 4
-    memory: 4096
-    image: ubuntu
+    memory: 4
+    image: /var/lib/libvirt/images/mantic-server-cloudimg-amd64.img
   router2:
     vcpu: 4
-    memory: 4096
-    image: ubuntu
+    memory: 4
+    image: /var/lib/libvirt/images/mantic-server-cloudimg-amd64.img
 interfaces:
   host1_eth0:
     mtu: 2000

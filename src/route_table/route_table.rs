@@ -3,7 +3,7 @@ use std::net::Ipv4Addr;
 
 use serde::{Deserialize, Serialize};
 use crate::instance::instance::InstanceRuntime;
-use crate::network::network::NetworkRuntime;
+use crate::network::network::{NetworkRuntime, NetworkTypeRuntime};
 use crate::object::object::Object;
 use crate::config::config::Config;
 
@@ -53,14 +53,19 @@ impl RouteTableRuntime{
                 let mut routes = HashMap::new();
                 for (destination, next_hops) in &route_table.routes{
                     if let Some(network) = networks.get(destination){
-                        for next_hop in next_hops{
-                            if let Some(next_hop_instance) = instances_clone.get(&next_hop.instance){
-                                if let Some(next_hop_interface) = next_hop_instance.interfaces.get(&next_hop.interface){
-                                    let destination = network.subnet;
-                                    let next_hop = next_hop_interface.address;
-                                    routes.entry(destination).or_insert(Vec::new()).push(next_hop);
+                        match network.network_type{
+                            NetworkTypeRuntime::Unmanaged{subnet, ref addresses, gateway} => {
+                                for next_hop in next_hops{
+                                    if let Some(next_hop_instance) = instances_clone.get(&next_hop.instance){
+                                        if let Some(next_hop_interface) = next_hop_instance.interfaces.get(&next_hop.interface){
+                                            let destination = subnet;
+                                            let next_hop = next_hop_interface.address;
+                                            routes.entry(destination).or_insert(Vec::new()).push(next_hop.unwrap());
+                                        }
+                                    }
                                 }
-                            }
+                            },
+                            _ => {},
                         }
                     }
                 }

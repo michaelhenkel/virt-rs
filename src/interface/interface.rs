@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use crate::instance::instance::InstanceRuntime;
 use crate::object::object::Object;
 use crate::config::config::Config;
-use crate::network::network::NetworkRuntime;
+use crate::network::network::{NetworkRuntime, NetworkTypeRuntime};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct InterfaceConfig{
@@ -39,7 +39,8 @@ impl <'a>Object<'a, InterfaceConfig> for Config {
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct InterfaceRuntime{
     pub mtu: u32,
-    pub address: Ipv4Addr,
+    pub address: Option<Ipv4Addr>,
+    pub managed: Option<String>,
 }
 
 impl InterfaceRuntime{
@@ -47,13 +48,27 @@ impl InterfaceRuntime{
         for (name, interface) in &config.interfaces{
             let network = networks.get_mut(&interface.network).unwrap();
             let instance = instances.get_mut(&interface.instance).unwrap();
-            let address = network.assign_address();
-            let mtu = interface.mtu;
-            let interface = InterfaceRuntime{
-                mtu,
-                address,
-            };
-            instance.interfaces.insert(name.clone(), interface);
+            match &network.network_type{
+                NetworkTypeRuntime::Unmanaged{subnet: _, addresses: _, gateway: _} => {
+                    let address = network.assign_address().unwrap();
+                    let mtu = interface.mtu;
+                    let interface = InterfaceRuntime{
+                        mtu,
+                        address: Some(address),
+                        managed: None,
+                    };
+                    instance.interfaces.insert(name.clone(), interface);
+                },
+                NetworkTypeRuntime::Managed{name} => {
+                    let mtu = interface.mtu;
+                    let interface = InterfaceRuntime{
+                        mtu,
+                        address: None,
+                        managed: Some(name.clone()),
+                    };
+                    instance.interfaces.insert(name.clone(), interface);
+                },
+            }
         }
     }
 }

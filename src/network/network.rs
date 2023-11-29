@@ -1,19 +1,29 @@
 use std::collections::{BTreeMap, HashMap};
 use std::net::Ipv4Addr;
-
 use serde::{Deserialize, Serialize};
 use crate::object::object::Object;
 use crate::config::config::Config;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct NetworkConfig{
-    pub subnet: String,
+    pub network_type: NetworkTypeConfig,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
+#[serde(untagged)]
+pub enum NetworkTypeConfig{
+    Managed{
+        name: String,
+    },
+    Unmanaged{
+        subnet: String,
+    },
 }
 
 impl NetworkConfig{
-    pub fn new(subnet: &str) -> NetworkConfig{
+    pub fn new(network_type: NetworkTypeConfig) -> NetworkConfig{
         NetworkConfig{
-            subnet: subnet.to_string(),
+            network_type,
         }
     }
 }
@@ -32,38 +42,70 @@ impl <'a>Object<'a, NetworkConfig> for Config {
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct NetworkRuntime{
-    pub subnet: ipnet::Ipv4Net,
-    pub addresses: BTreeMap<u32, Ipv4Addr>,
-    pub gateway: Ipv4Addr,
+    pub network_type: NetworkTypeRuntime,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(untagged)]
+pub enum NetworkTypeRuntime{
+    Managed{
+        name: String,
+    },
+    Unmanaged{
+        subnet: ipnet::Ipv4Net,
+        addresses: BTreeMap<u32, Ipv4Addr>,
+        gateway: Ipv4Addr,
+    },
 }
 
 impl NetworkRuntime{
-    pub fn assign_address(&mut self) -> Ipv4Addr{
-        let mut first_address = u32::from_be_bytes(self.subnet.network().octets());
-        first_address += 1;
-        loop {
-            if !self.addresses.contains_key(&first_address){
-                let address = Ipv4Addr::from(first_address);
-                self.addresses.insert(first_address, address);
-                return address;
-            }
-            first_address += 1;
+    pub fn assign_address(&mut self) -> Option<Ipv4Addr>{
+        match self.network_type{
+            NetworkTypeRuntime::Unmanaged{subnet, ref mut addresses, gateway} => {
+                let mut first_address = u32::from_be_bytes(subnet.network().octets());
+                first_address += 1;
+                loop {
+                    if !addresses.contains_key(&first_address){
+                        let address = Ipv4Addr::from(first_address);
+                        addresses.insert(first_address, address);
+                        return Some(address);
+                    }
+                    first_address += 1;
+                }
+            },
+            _ => None,
         }
+
     }
 }
 
 impl From<NetworkConfig> for NetworkRuntime{
     fn from(config: NetworkConfig) -> Self {
-        let subnet: ipnet::Ipv4Net = config.subnet.parse().unwrap();
-        let first_address = u32::from_be_bytes(subnet.network().octets()) + 1;
-        let gateway = Ipv4Addr::from(first_address);
-        let mut addresses = BTreeMap::new();
-        addresses.insert(first_address, gateway);
-        NetworkRuntime{
-            subnet,
-            addresses,
-            gateway,
+        match config.network_type{
+            NetworkTypeConfig::Unmanaged { subnet } => {
+                let subnet: ipnet::Ipv4Net = subnet.parse().unwrap();
+                let first_address = u32::from_be_bytes(subnet.network().octets()) + 1;
+                let gateway = Ipv4Addr::from(first_address);
+                let mut addresses = BTreeMap::new();
+                addresses.insert(first_address, gateway);
+                NetworkRuntime{
+                    network_type: NetworkTypeRuntime::Unmanaged{
+                        subnet,
+                        addresses,
+                        gateway,
+                    }
+                }
+            },
+            NetworkTypeConfig::Managed { name } => {
+                NetworkRuntime{
+                    network_type: NetworkTypeRuntime::Managed{
+                        name,
+                    }
+                }
+            }
         }
+
+
     }
 }
 
