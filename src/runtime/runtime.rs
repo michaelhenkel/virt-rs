@@ -9,6 +9,7 @@ pub struct Runtime{
     pub user_config: UserConfig,
     pub instances: HashMap<String, InstanceRuntime>,
     pub networks: HashMap<String, NetworkRuntime>,
+    pub mac_table: Option<MacTable>,
 }
 
 impl Runtime{
@@ -21,6 +22,11 @@ impl Runtime{
             user_config: config.user_config.clone(),
             instances,
             networks,
+            mac_table: None,
         }
     }
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct MacTable{
 }

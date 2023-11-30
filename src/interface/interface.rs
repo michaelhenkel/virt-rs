@@ -52,7 +52,17 @@ pub struct InterfaceRuntime{
     pub prefix_len: Option<u8>,
     pub managed: Option<String>,
     pub mac_address: Option<String>,
-    pub routes: HashMap<ipnet::Ipv4Net, Ipv4Addr>,
+    pub tap_mac_address: Option<String>,
+    pub routes: HashMap<ipnet::Ipv4Net, NextHop>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct NextHop{
+    pub ip: Ipv4Addr,
+    pub mac: String,
+    pub instance: String,
+    pub interface: String,
+    pub tap_mac: Option<String>,
 }
 
 fn generate_mac_address() -> String {
@@ -105,7 +115,14 @@ impl InterfaceRuntime{
                         };                        
                         match &dst_network.network_type{
                             NetworkTypeRuntime::Unmanaged { subnet, addresses: _, gateway: _ } =>{
-                                interface_routes.insert(subnet.clone(), nh_interface.address.unwrap());
+                                let nh = NextHop{
+                                    ip: nh_interface.address.unwrap(),
+                                    mac: nh_interface.mac_address.clone().unwrap(),
+                                    instance: instance_interface.instance.clone(),
+                                    interface: instance_interface.interface.clone(),
+                                    tap_mac: None,
+                                };
+                                interface_routes.insert(subnet.clone(), nh);
                             },
                             _=>{},
                         }
@@ -131,6 +148,7 @@ impl InterfaceRuntime{
                         address: Some(address),
                         prefix_len: Some(prefix_len),
                         mac_address: Some(generate_mac_address()),
+                        tap_mac_address: None,
                         routes: HashMap::new(),
                         managed: None,
                     };
@@ -143,6 +161,7 @@ impl InterfaceRuntime{
                         address: None,
                         prefix_len: None,
                         mac_address: Some(generate_mac_address()),
+                        tap_mac_address: None,
                         routes: HashMap::new(),
                         managed: Some(name.clone()),
                     };
