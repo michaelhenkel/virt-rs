@@ -2,7 +2,6 @@ pub mod config;
 pub mod network;
 pub mod instance;
 pub mod interface;
-pub mod route_table;
 pub mod object;
 pub mod runtime;
 pub mod virt_manager;
@@ -19,7 +18,7 @@ use virt_manager::virt_manager::VirtManager;
 use serde_yaml;
 use clap::Parser;
 
-use crate::{route_table::route_table::{RouteTableConfig, InstanceInterface}, config::config::UserConfig};
+use crate::{config::config::UserConfig, interface::interface::InstanceInterface};
 
 #[derive(Parser)]
 #[clap(version = "0.1.0")]
@@ -42,8 +41,8 @@ fn main() -> anyhow::Result<()>{
 
         let mut virt_manager = VirtManager::new();
         virt_manager.connect();
-        let inst = HashMap::from([(String::from("host1"), runtime.instances.get("host1").unwrap().clone())]);
-        virt_manager.create_instance(inst, config.user_config.clone())?;
+        //let inst = HashMap::from([(String::from("router1"), runtime.instances.get("router1").unwrap().clone())]);
+        virt_manager.create_instance(runtime.instances, config.user_config.clone())?;
     } else {
         let mut config = Config::new(UserConfig{
             user_name: "ubuntu".to_string(),
@@ -66,40 +65,57 @@ fn main() -> anyhow::Result<()>{
         let instance_config = InstanceConfig::new(1, 1024, "ubuntu");
         config.add("vm2", instance_config);
 
-        let interface_config = InterfaceConfig::new(1500, "mgmt", "vm1");
+        let interface_config = InterfaceConfig::new(1500, "mgmt", "vm1", HashMap::new());
         config.add("vm1_eth0", interface_config);
 
-        let interface_config = InterfaceConfig::new(1500, "net1", "vm1");
-        config.add("vm1_eth1", interface_config);
-
-        let interface_config = InterfaceConfig::new(1500, "net2", "vm2");
-        config.add("vm2_eth2", interface_config);
-
-
-        let interface_config = InterfaceConfig::new(1500, "mgmt", "vm2");
-        config.add("vm2_eth0", interface_config);
-
-        let interface_config = InterfaceConfig::new(1500, "net1", "vm2");
-        config.add("vm2_eth1", interface_config);
-
-        let interface_config = InterfaceConfig::new(1500, "net2", "vm2");
-        config.add("vm2_eth2", interface_config);
-
-
-        let route_table_config = RouteTableConfig::new("vm1", {
-            let mut routes = HashMap::new();
-            routes.insert("net1".to_string(), vec![InstanceInterface{
+        let interface_config = InterfaceConfig::new(1500, "net1", "vm1", HashMap::from([(
+            "net1".to_string(),
+            InstanceInterface{
                 instance: "vm2".to_string(),
                 interface: "vm2_eth1".to_string(),
-            }]);
-            routes.insert("net2".to_string(), vec![InstanceInterface{
-                instance: "vm2".to_string(),
-                interface: "vm2_eth2".to_string(),
-            }]);
-            routes
-        });
+            }
+        )]));
+        config.add("vm1_eth1", interface_config);
 
-        config.add("vm1_rt1", route_table_config);
+        let interface_config = InterfaceConfig::new(1500, "net2", "vm1", HashMap::from([(
+            "net1".to_string(),
+            InstanceInterface{
+                instance: "vm1".to_string(),
+                interface: "vm1_eth0".to_string(),
+            }
+        )]));
+
+        config.add("vm2_eth2", interface_config);
+
+
+        let interface_config = InterfaceConfig::new(1500, "mgmt", "vm2", HashMap::from([(
+            "net1".to_string(),
+            InstanceInterface{
+                instance: "vm1".to_string(),
+                interface: "vm1_eth0".to_string(),
+            }
+        )]));
+        config.add("vm2_eth0", interface_config);
+
+        let interface_config = InterfaceConfig::new(1500, "net1", "vm2", HashMap::from([(
+            "net1".to_string(),
+            InstanceInterface{
+                instance: "vm1".to_string(),
+                interface: "vm1_eth0".to_string(),
+            }
+        )]));
+
+        config.add("vm2_eth1", interface_config);
+
+        let interface_config = InterfaceConfig::new(1500, "net2", "vm2", HashMap::from([(
+            "net1".to_string(),
+            InstanceInterface{
+                instance: "vm1".to_string(),
+                interface: "vm1_eth0".to_string(),
+            }
+        )]));
+
+        config.add("vm2_eth2", interface_config);
 
         let serialized = serde_yaml::to_string(&config).unwrap();
         println!("{}", serialized);

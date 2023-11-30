@@ -61,7 +61,7 @@ pub enum NetworkTypeRuntime{
 impl NetworkRuntime{
     pub fn assign_address(&mut self) -> Option<(Ipv4Addr,u8)>{
         match self.network_type{
-            NetworkTypeRuntime::Unmanaged{subnet, ref mut addresses, gateway} => {
+            NetworkTypeRuntime::Unmanaged{subnet, ref mut addresses, gateway: _} => {
                 let mut first_address = u32::from_be_bytes(subnet.network().octets());
                 first_address += 1;
                 loop {

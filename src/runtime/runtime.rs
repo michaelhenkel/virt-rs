@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};
 
-use crate::{instance::instance::InstanceRuntime, network::network::NetworkRuntime, config::config::{Config, UserConfig}, interface::interface::InterfaceRuntime, route_table::route_table::RouteTableRuntime};
+use crate::{instance::instance::InstanceRuntime, network::network::NetworkRuntime, config::config::{Config, UserConfig}, interface::interface::InterfaceRuntime};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Runtime{
@@ -15,8 +15,8 @@ impl Runtime{
     pub fn build(config: &Config) -> Runtime{
         let mut networks: HashMap<String, NetworkRuntime> = HashMap::from(config);
         let mut instances: HashMap<String, InstanceRuntime> = HashMap::from(config);
-        InterfaceRuntime::configure(config, &mut networks, &mut instances);
-        RouteTableRuntime::configure(config, &networks, &mut instances);
+        InterfaceRuntime::configure_addresses(config, &mut networks, &mut instances);
+        InterfaceRuntime::configure_routes(config, &mut networks, &mut instances);
         Runtime{
             user_config: config.user_config.clone(),
             instances,

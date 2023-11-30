@@ -4,7 +4,6 @@ use serde::{Deserialize, Serialize};
 use crate::interface::interface::InterfaceRuntime;
 use crate::object::object::Object;
 use crate::config::config::Config;
-use crate::route_table::route_table::RouteTableRuntime;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct InstanceConfig{

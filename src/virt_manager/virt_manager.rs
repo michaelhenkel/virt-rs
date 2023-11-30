@@ -3,7 +3,6 @@ use serde_json::json;
 use virt::error::Error;
 use virt::connect::Connect;
 use crate::config::config::UserConfig;
-use crate::instance;
 use crate::instance::instance::InstanceRuntime;
 use handlebars::Handlebars;
 use std::process::Command;
@@ -77,10 +76,10 @@ impl VirtManager{
                 "instance_name": name
               }
             ))?);
+
             let network_data = format!("{}",reg.render_template(NETWORK_DATA, &json!(
               {
                 "interfaces": instance.interfaces,
-                "route_tables": instance.route_tables,
               }
             ))?);
             println!("{}", network_data);
@@ -103,51 +102,47 @@ impl VirtManager{
                 .arg(format!("{}/user-data", instance_directory))
                 .arg(format!("{}/network-config", instance_directory));
             cmd.output()?;
+            let xml = format!("{}",reg.render_template(DOMAIN_DEV, &json!(
+              { 
+                "name": name,
+                "instance": instance, 
+                "base_directory": base_directory
+              }
+            ))?);
+            println!("{}", xml);
+            virt::domain::Domain::create_xml(&self.conn, &xml, 0)?;
         }
         
-        let xml = format!("{}",reg.render_template(DOMAIN_DEV, &json!(
-          {"config": 
-            { 
-              "instances": instances, 
-              "base_directory": base_directory
-            }
-          }
-        ))?);
-        println!("{}", xml);
-        virt::domain::Domain::create_xml(&self.conn, &xml, 0)?;
+
         
         Ok(())
     }
 }
 
-const NETWORK_DATA: &str = r#"version: 1
-config:
+const NETWORK_DATA: &str = r#"version: 2
+ethernets:
   {{#each interfaces as |interface|}}
   {{#if interface.managed}}
-  - type: physical
-    name: eth0
-    mac_address: '{{interface.mac_address}}'
-    subnets:
-       - type: dhcp
+  {{@key}}:
+    match:
+      macaddress: '{{interface.mac_address}}'
+    dhcp4: true
   {{else}}
-  - type: physical
-    name: {{@key}}
+  {{@key}}:
     mtu: {{interface.mtu}}
-    mac_address: '{{interface.mac_address}}'
-    subnets:
-       - type: static
-         address: {{interface.address}}/{{interface.prefix_len}}
+    match:
+      macaddress: '{{interface.mac_address}}'
+    addresses:
+    - {{interface.address}}/{{interface.prefix_len}}
+    {{#if interface.routes}}
+    routes:
+    {{#each interface.routes as |route|}}
+    - to: {{@key}}
+      via: {{route}}
+      metric: 1
+    {{/each}}
+    {{/if}}
   {{/if}}
-  {{/each}}
-  {{#each route_tables as |route_table|}}
-  {{#each routes as |route|}}
-  {{#each route as |next_hop|}}
-  - type: route
-    destination: {{@../key}}
-    gateway: {{next_hop}}
-    metric: 1
-  {{/each}}
-  {{/each}}
   {{/each}}
 "#;
 
@@ -158,6 +153,8 @@ package_update: false
 package_upgrade: false
 ssh_pwauth: true
 disable_root: false
+bootcmd:
+- systemd-machine-id-setup
 users:
 - default
 - name: ubuntu
@@ -174,42 +171,9 @@ users:
   - {{ key }}
 "#;
 
-/*
-const USER_DATA: &str = r#"#cloud-config
-hostname: {{ instance_name }}
-fqdn: {{ instance_name }}
-package_update: false
-package_upgrade: false
-ssh_pwauth: true
-disable_root: false
-autoinstall:
-  updates: security
-  apt:
-    preferences:
-      - package: "*"
-        pin: "release a=mantic-security"
-        pin-priority: 200
-  late-commands:
-    - |
-      rm /target/etc/apt/preferences.d/90curtin.pref
-      true
-bootcmd:
-- [ snap, remove, --purge, lxd ]
-- [ snap, remove, --purge, core20 ]
-- [ snap, remove, --purge, snapd ]
-- [ apt, --purge, autoremove, snapd ]
-ssh-authorized-keys:
-- {{ key }}
-"#;
-*/
-
-
 const DOMAIN_DEV: &str = r#"
-
-{{#each config.instances as |instance|}}
 <domain type="qemu">
-  <name>{{ @key }}</name>
-  <uuid>8634a4a3-a491-43d4-85c6-5e47489ee0ea</uuid>
+  <name>{{ name }}</name>
   <metadata>
     <libosinfo:libosinfo xmlns:libosinfo="http://libosinfo.org/xmlns/libvirt/domain/1.0">
       <libosinfo:os id="http://ubuntu.com/ubuntu/23.10"/>
@@ -239,7 +203,7 @@ const DOMAIN_DEV: &str = r#"
     <emulator>/usr/bin/qemu-system-x86_64</emulator>
     <disk type="file" device="disk">
       <driver name="qemu" type="qcow2"/>
-      <source file="{{../config.base_directory}}/{{@key}}/{{ @key }}.img"/>
+      <source file="{{../base_directory}}/{{name}}/{{ name }}.img"/>
       <target dev="vda" bus="virtio"/>
     </disk>
     <controller type="usb" model="qemu-xhci" ports="15"/>
@@ -258,7 +222,7 @@ const DOMAIN_DEV: &str = r#"
     <controller type="pci" model="pcie-root-port"/>
     <controller type="pci" model="pcie-root-port"/>
     <controller type="pci" model="pcie-root-port"/>
-    {{#each interfaces as |interface|}}
+    {{#each instance.interfaces as |interface|}}
     {{#if interface.managed}}
     <interface type='network'>
         <source network='{{interface.managed}}'/>
@@ -288,14 +252,13 @@ const DOMAIN_DEV: &str = r#"
     </rng>
     <disk type="file" device="cdrom">
       <driver name="qemu" type="raw"/>
-      <source file="{{../config.base_directory}}/{{@key}}/cidata.iso"/>
+      <source file="{{../base_directory}}/{{name}}/cidata.iso"/>
       <target dev="sda" bus="sata"/>
       <readonly/>
     </disk>
     <serial type='file'>
-        <source path='{{../config.base_directory}}/{{@key}}/{{ @key }}.log'/>
+        <source path='{{../base_directory}}/{{name}}/{{ name }}.log'/>
     <target port='0'/>
   </serial>
   </devices>
-</domain>
-{{/each}}"#;
+</domain>"#;

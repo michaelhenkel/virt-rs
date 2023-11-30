@@ -40,76 +40,77 @@ interfaces:
     mtu: 2000
     network: mgmt
     instance: host1
+    routes:
   host1_eth1:
     mtu: 2000
     network: access1
     instance: host1
+    routes:
+      access2:
+        instance: router1
+        interface: router1_eth1
   host2_eth0:
     mtu: 2000
     network: mgmt
     instance: host2
+    routes:
   host2_eth1:
     mtu: 2000
     network: access1
     instance: host2
+    routes:
+      access1:
+        instance: router1
+        interface: router1_eth1
   router1_eth0:
     mtu: 2000
     network: mgmt
     instance: router1
+    routes:
   router1_eth1:
     mtu: 2000
     network: access1
     instance: router1
+    routes:
   router1_eth2:
     mtu: 2000
     network: core1
     instance: router1
+    routes:
+      access2:
+        instance: router2
+        interface: router2_eth2
   router1_eth3:
     mtu: 2000
     network: core2
     instance: router1
+    routes:
+      access2:
+        instance: router2
+        interface: router2_eth3
   router2_eth0:
     mtu: 2000
     network: mgmt
     instance: router2
+    routes:
   router2_eth1:
     mtu: 2000
     network: access2
     instance: router2
+    routes:
   router2_eth2:
     mtu: 2000
     network: core1
     instance: router2
+    routes:
+      access1:
+        instance: router1
+        interface: router1_eth2
   router2_eth3:
     mtu: 2000
     network: core2
     instance: router2
-route_tables:
-  host1_rt1:
-    routes:
-      access2:
-      - instance: router1
-        interface: router1_eth1
-    instance: host1
-  host2_rt1:
     routes:
       access1:
-      - instance: router2
-        interface: router2_eth1
-    instance: host2
-  router1_rt1:
-    routes:
-      access2:
-      - instance: router2
-        interface: router2_eth2
-      - instance: router2
-        interface: router2_eth3
-    instance: router1
-  router2_rt1:
-    routes:
-      access1:
-      - instance: router1
-        interface: router1_eth2
-      - instance: router1
+        instance: router1
         interface: router1_eth3
-    instance: router2
