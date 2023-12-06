@@ -19,7 +19,8 @@
                     "kind": "bin"
                 }
             },
-            "args": ["-c","/home/mhenkel/virt-rs/config.yaml"],
+            "args": ["destroy","-c","/home/mhenkel/virt-rs/config.yaml"],
+            //"args": ["simulate"],
             "cwd": "${workspaceFolder}"
         },
         {

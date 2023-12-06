@@ -1,3 +1,5 @@
+use std::sync::{Arc, Mutex};
+
 pub trait Object<'a, T>{
     fn get(&'a self, name: &str) -> Option<&'a T>;
     fn get_mut(&'a mut self, name: &str) -> Option<&'a mut T>;

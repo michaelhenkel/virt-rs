@@ -4,21 +4,20 @@ pub mod instance;
 pub mod interface;
 pub mod object;
 pub mod runtime;
-pub mod virt_manager;
-
-use std::collections::HashMap;
+pub mod lxd_manager;
 
 use config::config::Config;
+use runtime::runtime::Runtime;
 use network::network::{NetworkConfig, NetworkTypeConfig};
-use instance::instance::InstanceConfig;
+use instance::instance::{InstanceConfig, Route};
 use interface::interface::InterfaceConfig;
 use object::object::Object;
-use runtime::runtime::Runtime;
-use virt_manager::virt_manager::VirtManager;
+use lxd_manager::lxd_manager::LxdManager;
 use serde_yaml;
 use clap::{Args, Parser, Subcommand};
 
-use crate::{config::config::UserConfig, interface::interface::InstanceInterface};
+use crate::config::config::UserConfig;
+use crate::instance::instance::{Destination, NextHop};
 
 #[derive(Parser)]
 #[clap(version = "0.1.0")]
@@ -40,22 +39,24 @@ struct CommandArgs {
     config: Option<String>,
 }
 
-#[tokio::main]
-async fn main() -> anyhow::Result<()>{
+//#[tokio::main]
+fn main() -> anyhow::Result<()>{
     env_logger::init();
     let cli = Cli::parse();
     match cli.command {
         Commands::Create(opts) => {
-            let (config, runtime) = read_config_file(opts.config.as_ref().unwrap())?;
-            let mut virt_manager = VirtManager::new();
-            virt_manager.connect();
-            virt_manager.create_instance(runtime.instances, config.user_config.clone()).await?;
+            let config = read_config_file(opts.config.as_ref().unwrap())?;
+            let runtime = Runtime::build(&config);
+            let serialized = serde_yaml::to_string(&runtime).unwrap();
+            println!("{}", serialized);
+            let mut lxd_manager = LxdManager::new(runtime);
+            lxd_manager.run()?;
         },
         Commands::Destroy(opts) => {
-            let (config, runtime) = read_config_file(opts.config.as_ref().unwrap())?;
-            let mut virt_manager = VirtManager::new();
-            virt_manager.connect();
-            virt_manager.destroy_instance(runtime.instances, config.user_config.clone()).await?;
+            let config = read_config_file(opts.config.as_ref().unwrap())?;
+            let runtime = Runtime::build(&config);
+            let mut lxd_manager = LxdManager::new(runtime);
+            lxd_manager.destroy()?;
         },
         Commands::Simulate => {
             let mut config = Config::new(UserConfig{
@@ -64,93 +65,66 @@ async fn main() -> anyhow::Result<()>{
                 base_directory: "/var/lib/libvirt/images".to_string(),
             });
     
-            let network_config = NetworkConfig::new(NetworkTypeConfig::Managed { name: "default".to_string() });
-            config.add("mgmt", network_config);
+            let mgmt_network = NetworkConfig::new(NetworkTypeConfig::Managed { name: "default".to_string() });
+            
     
-            let network_config = NetworkConfig::new(NetworkTypeConfig::Unmanaged { subnet: "10.0.0.0/24".to_string() });
-            config.add("net1", network_config);
+            let net1 = NetworkConfig::new(NetworkTypeConfig::Unmanaged { 
+                subnet: "10.0.0.0/24".to_string(),
+            });
+            
     
-            let network_config = NetworkConfig::new(NetworkTypeConfig::Unmanaged { subnet: "10.0.1.0/24".to_string() });
-            config.add("net2", network_config);
+            let net2 = NetworkConfig::new(NetworkTypeConfig::Unmanaged {
+                subnet: "10.0.1.0/24".to_string(),
+            });
+            
     
-            let instance_config = InstanceConfig::new(1, 1024, "ubuntu");
-            config.add("vm1", instance_config);
-    
-            let instance_config = InstanceConfig::new(1, 1024, "ubuntu");
-            config.add("vm2", instance_config);
-    
-            let interface_config = InterfaceConfig::new(1500, "mgmt", "vm1", HashMap::new());
-            config.add("vm1_eth0", interface_config);
-    
-            let interface_config = InterfaceConfig::new(1500, "net1", "vm1", HashMap::from([(
-                "net1".to_string(),
-                InstanceInterface{
-                    instance: "vm2".to_string(),
-                    interface: "vm2_eth1".to_string(),
+            let mut host1 = InstanceConfig::new(1, "2GB", "ubuntu");
+            let mut host2 = InstanceConfig::new(1, "2GB", "ubuntu");
+            
+            let host1_eth0 = InterfaceConfig::new(Some(1500), "net1");
+            let host2_eth0 = InterfaceConfig::new(Some(1500), "net2");
+
+            host1.routes = Some(vec![
+                Route{
+                    destination: Destination{
+                        instance: "host2".to_string(),
+                        interface: "eth0".to_string(),
+                    },
+                    next_hops: vec![
+                        NextHop{
+                            instance: "host2".to_string(),
+                            interface: "eth0".to_string(),
+                        }
+                    ]
                 }
-            )]));
-            config.add("vm1_eth1", interface_config);
+            ]);
     
-            let interface_config = InterfaceConfig::new(1500, "net2", "vm1", HashMap::from([(
-                "net1".to_string(),
-                InstanceInterface{
-                    instance: "vm1".to_string(),
-                    interface: "vm1_eth0".to_string(),
-                }
-            )]));
-    
-            config.add("vm2_eth2", interface_config);
-    
-    
-            let interface_config = InterfaceConfig::new(1500, "mgmt", "vm2", HashMap::from([(
-                "net1".to_string(),
-                InstanceInterface{
-                    instance: "vm1".to_string(),
-                    interface: "vm1_eth0".to_string(),
-                }
-            )]));
-            config.add("vm2_eth0", interface_config);
-    
-            let interface_config = InterfaceConfig::new(1500, "net1", "vm2", HashMap::from([(
-                "net1".to_string(),
-                InstanceInterface{
-                    instance: "vm1".to_string(),
-                    interface: "vm1_eth0".to_string(),
-                }
-            )]));
-    
-            config.add("vm2_eth1", interface_config);
-    
-            let interface_config = InterfaceConfig::new(1500, "net2", "vm2", HashMap::from([(
-                "net1".to_string(),
-                InstanceInterface{
-                    instance: "vm1".to_string(),
-                    interface: "vm1_eth0".to_string(),
-                }
-            )]));
-    
-            config.add("vm2_eth2", interface_config);
-    
+
+            host1.add("eth0", host1_eth0);
+            host2.add("eth0", host2_eth0);
+
+
+            config.add("mgmt", mgmt_network);
+            config.add("net1", net1);
+            config.add("net2", net2);
+            config.add("host1", host1);
+            config.add("host2", host2);
+
             let serialized = serde_yaml::to_string(&config).unwrap();
             println!("{}", serialized);
-    
+
             let runtime = Runtime::build(&config);
-    
             let serialized = serde_yaml::to_string(&runtime).unwrap();
             println!("{}", serialized);
+
 
         }
     }
     Ok(())
 }
 
-fn read_config_file(config_file: &str) -> anyhow::Result<(Config, Runtime)>{
+fn read_config_file(config_file: &str) -> anyhow::Result<Config>{
     let config = std::fs::read_to_string(config_file).unwrap();
     let config: Config = serde_yaml::from_str(&config).unwrap();
-    //let serialized = serde_yaml::to_string(&config).unwrap();
-    //info!("{}", serialized);
-    let runtime = Runtime::build(&config);
-    //let serialized = serde_yaml::to_string(&runtime).unwrap();
-    //info!("{}", serialized);
-    Ok((config, runtime))
+    Ok(config)
 }

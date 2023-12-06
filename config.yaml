@@ -1,116 +1,126 @@
 user_config:
-  user_name: mhenkel
-  key_path: /home/mhenkel/.ssh/id_rsa.pub
+  user_name: ubuntu
+  key_path: /home/mhenkel/.ssh/id_rsa
   base_directory: /var/lib/libvirt/images
 networks:
+  fabric1:
+    network_type:
+      subnet: 11.0.0.0/24
+      gateway: 11.0.0.1
+  fabric2:
+    network_type:
+      subnet: 11.0.1.0/24
+      gateway: 11.0.1.1
   access1:
     network_type:
-      subnet: 10.0.0.0/24
-  core1:
-    network_type:
-      subnet: 10.0.1.0/24
-  core2:
-    network_type:
-      subnet: 10.0.2.0/24
+      subnet: 11.0.2.0/24
+      gateway: 11.0.2.1
   access2:
     network_type:
-      subnet: 10.0.3.0/24
+      subnet: 11.0.3.0/24
+      gateway: 11.0.2.3
   mgmt:
     network_type:
       name: default
 instances:
   host1:
     vcpu: 4
-    memory: 4
-    image: /var/lib/libvirt/images/mantic-server-cloudimg-amd64.img
+    memory: 16GB
+    image: images:ubuntu/23.04/default
+    interfaces:
+      eth0:
+        mtu: 1500
+        network: mgmt
+      eth3: 
+        mtu: 2000
+        network: access1
+    routes:
+    - destination:
+        instance: host2
+        interface: eth3
+      next_hops:
+      - instance: router1
+        interface: eth3
   host2:
     vcpu: 4
-    memory: 4
-    image: /var/lib/libvirt/images/mantic-server-cloudimg-amd64.img
+    memory: 16GB
+    image: images:ubuntu/23.04/default
+    interfaces:
+      eth0:
+        mtu: 1500
+        network: mgmt
+      eth3: 
+        mtu: 2000
+        network: access2
+    routes:
+    - destination:
+        instance: host1
+        interface: eth3
+      next_hops:
+      - instance: router1
+        interface: eth3
   router1:
     vcpu: 4
-    memory: 4
-    image: /var/lib/libvirt/images/mantic-server-cloudimg-amd64.img
+    memory: 16GB
+    image: images:ubuntu/23.04/default
+    interfaces:
+      eth0:
+        mtu: 1500
+        network: mgmt
+      eth3:
+        mtu: 2000
+        network: access1
+      eth4: 
+        mtu: 2000
+        network: fabric1
+      eth5:
+        mtu: 2000
+        network: fabric2
+    routes:
+    - destination:
+        instance: host2
+        interface: eth3
+      next_hops:
+      - instance: router2
+        interface: eth4
+      - instance: router2
+        interface: eth5
+    - destination:
+        instance: host1
+        interface: eth3
+      next_hops:
+      - instance: host1
+        interface: eth3
   router2:
     vcpu: 4
-    memory: 4
-    image: /var/lib/libvirt/images/mantic-server-cloudimg-amd64.img
-interfaces:
-  host1_eth0:
-    mtu: 2000
-    network: mgmt
-    instance: host1
+    memory: 16GB
+    image: images:ubuntu/23.04/default
+    interfaces:
+      eth0:
+        mtu: 1500
+        network: mgmt
+      eth3: 
+        mtu: 2000
+        network: access2
+      eth4: 
+        mtu: 2000
+        network: fabric1
+      eth5:
+        mtu: 2000
+        network: fabric2
     routes:
-  host1_eth1:
-    mtu: 2000
-    network: access1
-    instance: host1
-    routes:
-      access2:
-        instance: router1
-        interface: router1_eth1
-  host2_eth0:
-    mtu: 2000
-    network: mgmt
-    instance: host2
-    routes:
-  host2_eth1:
-    mtu: 2000
-    network: access1
-    instance: host2
-    routes:
-      access1:
-        instance: router1
-        interface: router1_eth1
-  router1_eth0:
-    mtu: 2000
-    network: mgmt
-    instance: router1
-    routes:
-  router1_eth1:
-    mtu: 2000
-    network: access1
-    instance: router1
-    routes:
-  router1_eth2:
-    mtu: 2000
-    network: core1
-    instance: router1
-    routes:
-      access2:
-        instance: router2
-        interface: router2_eth2
-  router1_eth3:
-    mtu: 2000
-    network: core2
-    instance: router1
-    routes:
-      access2:
-        instance: router2
-        interface: router2_eth3
-  router2_eth0:
-    mtu: 2000
-    network: mgmt
-    instance: router2
-    routes:
-  router2_eth1:
-    mtu: 2000
-    network: access2
-    instance: router2
-    routes:
-  router2_eth2:
-    mtu: 2000
-    network: core1
-    instance: router2
-    routes:
-      access1:
-        instance: router1
-        interface: router1_eth2
-  router2_eth3:
-    mtu: 2000
-    network: core2
-    instance: router2
-    routes:
-      access1:
-        instance: router1
-        interface: router1_eth3
+    - destination:
+        instance: host1
+        interface: eth3
+      next_hops:
+      - instance: router1
+        interface: eth4
+      - instance: router1
+        interface: eth5
+    - destination:
+        instance: host2
+        interface: eth3
+      next_hops:
+      - instance: host2
+        interface: eth3
+  
