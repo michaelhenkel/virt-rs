@@ -1,4 +1,4 @@
-use std::{process::{Command, Output}, sync::{Mutex, Arc}};
+use std::{process::{Command, Output}, sync::{Mutex, Arc}, thread::sleep};
 use std::io::{self, Write};
 use serde::{Deserialize, Serialize};
 use virt::{network, interface};
@@ -17,6 +17,7 @@ impl LxdManager{
         }
     }
     pub fn run(&mut self) -> anyhow::Result<()>{
+        /*
         for (name, network) in &self.runtime.networks {
             {
                 let network_clone = network.clone();
@@ -39,6 +40,7 @@ impl LxdManager{
                 return Err(anyhow::Error::new(e));
             }
         }
+        */
         for (name, instance) in &self.runtime.instances {
             let command = LxdCommands::LaunchInstance{
                 name: name.clone(),
@@ -49,6 +51,7 @@ impl LxdManager{
             }
             let instance = instance.clone();
             let instance = instance.lock().unwrap();
+            let mut idx: usize = 1;
             for (intf_name, interface) in &instance.interfaces {
                 {
                     let interface = interface.clone();
@@ -61,11 +64,16 @@ impl LxdManager{
                     name: intf_name.clone(),
                     config: interface.clone(),
                     instance: name.clone(),
+                    idx,
                 };
+                
                 if let Err(e) = command.command(){
                     return Err(anyhow::Error::new(e));
                 }
+                idx += 1;
+                sleep(std::time::Duration::from_secs(2));
             }
+            sleep(std::time::Duration::from_secs(2));
         }
         Ok(())
     }
@@ -79,6 +87,7 @@ impl LxdManager{
                 continue;
             }
         }
+        /*
         for (name, network) in &self.runtime.networks {
             {
                 let network = network.lock().unwrap();
@@ -100,6 +109,7 @@ impl LxdManager{
             }
 
         }
+        */
         Ok(())
     }
 }
@@ -125,6 +135,7 @@ enum LxdCommands{
         name: String,
         config: Arc<Mutex<InterfaceRuntime>>,
         instance: String,
+        idx: usize
     }
 }
 
@@ -242,7 +253,7 @@ impl LxdCommands{
                     }
                 }
             },
-            LxdCommands::AttachInterface { name, config , instance} => {
+            LxdCommands::AttachInterface { name, config , instance, idx} => {
                 log::info!("Attaching interface {} to instance {}", name, instance);
                 let config = config.lock().unwrap();
                 let mut cmd = Command::new("lxc");
@@ -250,14 +261,16 @@ impl LxdCommands{
                     arg("device").
                     arg("add").
                     arg(&instance).
-                    arg(&name).
+                    arg(format!("eth{}", idx)).
                     arg("nic").
                     arg(format!("name={}", name)).
-                    arg(format!("nictype=bridged")).
+                    arg(format!("nictype=routed")).
                     arg(format!("ipv4.address={}", config.ip.as_ref().unwrap())).
                     arg(format!("hwaddr={}", config.mac.as_ref().unwrap())).
                     arg(format!("mtu={}", config.mtu.as_ref().unwrap())).
-                    arg(format!("parent={}", config.network.as_ref().unwrap()));
+                    arg("ipv4.gateway=none").
+                    arg("ipv6.gateway=none").
+                    arg(format!("host_name={}_{}", instance, name));
                 let res = cmd.output();
                 match res {
                     Ok(res) => {
